@@ -41,9 +41,23 @@ async def handle_list_tools() -> list[types.Tool]:
                 "   * You can find your converted file at the specified location\n"
                 "   * If no path is specified, files may be saved in system temp directory (/tmp/ on Unix systems)\n"
                 "   * For better control, always provide explicit output file paths\n\n"
+                "4. Basic formats:\n"
+                "   * If no input file was specified initially assume that the user just wants to see the output and not save it to a file.\n"
+                "   * If the output is markdown then just print it as is.\n"
+                "   * If it is another format then either place it in a source block or something to show the raw output.\n\n"
+                "5. Extra arguments can be sent in to fine tune the conversion using extra_args. Here are some common ones:\n"
+                "   * --standalone : Produce output with an appropriate header and footer\n"
+                "   * --wrap=auto|none|preserve : Determine how text is wrapped in the output\n"
+                "   * --columns=NUMBER : Specify length of lines in characters\n\n"
+                "6. Getting more information:\n"
+                "   * If you have internet access then the pandoc manual is available at https://pandoc.org/MANUAL.html \n\n"
                 "Supported formats:\n"
-                "- Basic formats: txt, html, markdown\n"
+                "- Basic formats: txt, html, markdown, org, json\n"
                 "- Advanced formats (REQUIRE complete file paths): pdf, docx, rst, latex, epub\n\n"
+                "You do not need to output a file when converting between basic formats\n\n"
+                "Notes on formats:\n"
+                "- org: Emacs Org mode\n"
+                "- json: pandoc AST in json format\n\n"
                 "✅ CORRECT Usage Examples:\n"
                 "1. 'Convert this text to HTML' (basic conversion)\n"
                 "   - Tool will show converted content\n\n"
@@ -77,17 +91,25 @@ async def handle_list_tools() -> list[types.Tool]:
                         "type": "string",
                         "description": "Source format of the content (defaults to markdown)",
                         "default": "markdown",
-                        "enum": ["markdown", "html", "pdf", "docx", "rst", "latex", "epub", "txt"]
+                        "enum": ["markdown", "html", "pdf", "docx", "rst", "latex", "epub", "txt", "org", "json"]
                     },
                     "output_format": {
                         "type": "string",
                         "description": "Desired output format (defaults to markdown)",
                         "default": "markdown",
-                        "enum": ["markdown", "html", "pdf", "docx", "rst", "latex", "epub", "txt"]
+                        "enum": ["markdown", "html", "pdf", "docx", "rst", "latex", "epub", "txt", "org", "json"]
                     },
                     "output_file": {
                         "type": "string",
                         "description": "Complete path where to save the output including filename and extension (required for pdf, docx, rst, latex, epub formats)"
+                    },
+                    "extra_args": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Extra arguments to send pandoc",
+                        "default": []
                     }
                 },
                 "oneOf": [
@@ -132,13 +154,14 @@ async def handle_call_tool(
     output_file = arguments.get("output_file")
     output_format = arguments.get("output_format", "markdown").lower()
     input_format = arguments.get("input_format", "markdown").lower()
+    extra_args = arguments.get("extra_args", [])
     
     # Validate input parameters
     if not contents and not input_file:
         raise ValueError("Either 'contents' or 'input_file' must be provided")
     
     # Define supported formats
-    SUPPORTED_FORMATS = {'html', 'markdown', 'pdf', 'docx', 'rst', 'latex', 'epub', 'txt'}
+    SUPPORTED_FORMATS = {'html', 'markdown', 'pdf', 'docx', 'rst', 'latex', 'epub', 'txt', 'org', 'json'}
     if output_format not in SUPPORTED_FORMATS:
         raise ValueError(f"Unsupported output format: '{output_format}'. Supported formats are: {', '.join(SUPPORTED_FORMATS)}")
     
@@ -148,9 +171,6 @@ async def handle_call_tool(
         raise ValueError(f"output_file path is required for {output_format} format")
     
     try:
-        # Prepare conversion arguments
-        extra_args = []
-        
         # Handle PDF-specific conversion if needed
         if output_format == "pdf":
             extra_args.extend([
