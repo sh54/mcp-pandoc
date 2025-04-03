@@ -135,7 +135,7 @@
           nativeBuildInputs = (old.nativeBuildInputs or []) ++ [pkgs.makeWrapper];
           postFixup = ''
             wrapProgram $out/bin/mcp-pandoc \
-              --prefix PATH : ${pkgs.lib.makeBinPath [pkgs.pandoc]}
+              --prefix PATH : ${pkgs.lib.makeBinPath [pkgs.pandoc pkgs.texliveSmall]}
           '';
         });
       };
