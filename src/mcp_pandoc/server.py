@@ -122,8 +122,6 @@ async def handle_call_tool(
     """
     if name not in ["convert-contents"]:
         raise ValueError(f"Unknown tool: {name}")
-    
-    print(arguments)
 
     if not arguments:
         raise ValueError("Missing arguments")
